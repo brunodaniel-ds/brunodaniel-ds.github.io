@@ -1,36 +1,45 @@
+import os
 from flask import Flask, request, jsonify
-import datetime
-import database # Importa o módulo do banco de dados simulado
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Inicializa o banco de dados simulado
-database.init_db()
+# Heroku já define DATABASE_URL como variável de ambiente
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-@app.route("/api/occupancy", methods=["POST"])
-def receive_occupancy_data():
+# Ajuste necessário porque SQLAlchemy espera "postgresql://" e o Heroku fornece "postgres://"
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+# Modelo de exemplo
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+
+@app.route("/")
+def home():
+    return "API Flask rodando com Postgres no Heroku!"
+
+@app.route("/users", methods=["POST"])
+def add_user():
     data = request.get_json()
-    if not data or "mac_addresses" not in data:
-        return jsonify({"error": "Invalid data. \"mac_addresses\" field is required."}), 400
+    new_user = User(name=data["name"])
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"id": new_user.id, "name": new_user.name})
 
-    mac_addresses = data["mac_addresses"]
-    timestamp = datetime.datetime.now().isoformat()
-    unique_devices = len(set(mac_addresses)) # Contagem de dispositivos únicos
-
-    occupancy_record = {
-        "timestamp": timestamp,
-        "mac_addresses": mac_addresses,
-        "unique_devices": unique_devices
-    }
-    database.insert_occupancy_record(occupancy_record) # Insere no banco de dados simulado
-
-    print(f"Received occupancy data: {occupancy_record}")
-
-    return jsonify({"message": "Occupancy data received successfully", "unique_devices": unique_devices}), 200
-
-@app.route("/api/occupancy", methods=["GET"])
-def get_occupancy_data():
-    return jsonify(database.get_all_occupancy_records()), 200 # Retorna dados do banco de dados simulado
+@app.route("/users", methods=["GET"])
+def get_users():
+    users = User.query.all()
+    return jsonify([{"id": u.id, "name": u.name} for u in users])
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Cria tabelas automaticamente no primeiro run
+    with app.app_context():
+        db.create_all()
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
