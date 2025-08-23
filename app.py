@@ -1,6 +1,7 @@
 import os
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+import datetime
 
 app = Flask(__name__)
 
@@ -21,25 +22,50 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
 
+# Modelo Occupancy (novo)
+class Occupancy(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    mac_addresses = db.Column(db.JSON)
+    unique_devices = db.Column(db.Integer)
+
 @app.route("/")
 def home():
     return "API Flask rodando com Postgres no Heroku!"
 
-@app.route("/users", methods=["POST"])
-def add_user():
+# Rotas Occupancy
+@app.route("/api/occupancy", methods=["POST"])
+def add_occupancy():
     data = request.get_json()
-    new_user = User(name=data["name"])
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({"id": new_user.id, "name": new_user.name})
+    if not data or "mac_addresses" not in data:
+        return jsonify({"error": "Campo 'mac_addresses' obrigatório"}), 400
 
-@app.route("/users", methods=["GET"])
-def get_users():
-    users = User.query.all()
-    return jsonify([{"id": u.id, "name": u.name} for u in users])
+    record = Occupancy(
+        mac_addresses=data["mac_addresses"],
+        unique_devices=len(set(data["mac_addresses"]))
+    )
+    db.session.add(record)
+    db.sessions.commit()
+
+    return jsonify({
+        "id": record.id,
+        "timestamp": record.timestamp.isoformat(),
+        "unique_devices": record.unique_devices
+    }), 201
+
+@app.route("/api/occupancy", methods=["GET"])
+def get_occupancy():
+    records = Occupancy.query.order_by(Occupancy.timestamp.asc()).all()
+    return jsonify([
+        {
+            "id": r.id,
+            "timestamp": r.timestamp.isoformat(),
+            "mac_addresses": r.mac_addresses,
+            "unique_devices": r.unique_devices
+        } for r in records
+    ])
 
 if __name__ == "__main__":
-    # Cria tabelas automaticamente no primeiro run
     with app.app_context():
         db.create_all()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
