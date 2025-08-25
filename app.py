@@ -45,7 +45,7 @@ def add_occupancy():
         unique_devices=len(set(data["mac_addresses"]))
     )
     db.session.add(record)
-    db.sessions.commit()
+    db.session.commit()
 
     return jsonify({
         "id": record.id,
