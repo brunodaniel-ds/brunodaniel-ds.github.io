@@ -1,9 +1,11 @@
 import os
+from flask_cors import CORS
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import datetime
 
 app = Flask(__name__)
+CORS(app)
 
 # Heroku já define DATABASE_URL como variável de ambiente
 DATABASE_URL = os.getenv("DATABASE_URL")
