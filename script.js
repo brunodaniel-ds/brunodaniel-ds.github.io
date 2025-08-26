@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Função para buscar dados de ocupação do backend
     async function fetchOccupancyData() {
         try {
-            const response = await fetch('http://localhost:5000/api/occupancy' );
+            const response = await fetch('https://gymnow-7c3f669b80bd.herokuapp.com/api/occupancy' );
             const data = await response.json();
             
             // Pegar o último registro de ocupação
@@ -110,3 +110,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // Atualizar dados a cada 10 segundos
     setInterval(fetchOccupancyData, 10000);
 });
+
